@@ -19,12 +19,25 @@ document.addEventListener("DOMContentLoaded", () => {
         activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
+        // build participants list HTML
+        const participantsHtml = details.participants.length
+          ? `<p><strong>Participants:</strong></p>
+             <ul class="participants-list">
+               ${details.participants
+                 .map(
+                   (email) =>
+                     `<li><span class="participant-email">${email}</span> <span class="delete-icon" data-activity="${name}" data-email="${email}">✖</span></li>`
+                 )
+                 .join("")}
+             </ul>`
+          : "<p><em>No participants yet</em></p>";
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsHtml}
         `;
 
         activitiesList.appendChild(activityCard);
@@ -62,6 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities(); // update list to show new participant immediately
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -78,6 +92,34 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.className = "error";
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
+    }
+  });
+
+  // Handle clicks on delete icons using event delegation
+  activitiesList.addEventListener("click", async (e) => {
+    if (e.target.classList.contains("delete-icon")) {
+      const activity = e.target.dataset.activity;
+      const email = e.target.dataset.email;
+
+      try {
+        const resp = await fetch(
+          `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(
+            email
+          )}`,
+          { method: "DELETE" }
+        );
+        if (resp.ok) {
+          fetchActivities(); // refresh cards
+        } else {
+          const err = await resp.json();
+          messageDiv.textContent = err.detail || "Failed to remove participant";
+          messageDiv.className = "error";
+          messageDiv.classList.remove("hidden");
+          setTimeout(() => messageDiv.classList.add("hidden"), 5000);
+        }
+      } catch (error) {
+        console.error("Error removing participant:", error);
+      }
     }
   });
 
